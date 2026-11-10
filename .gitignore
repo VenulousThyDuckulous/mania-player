@@ -1,0 +1,7 @@
+node_modules/
+dist/
+docs/
+test-assets/
+.DS_Store
+*.local
+.env
