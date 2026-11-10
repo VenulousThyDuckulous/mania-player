@@ -380,11 +380,15 @@ export class ManiaEngine {
     else this.breakHold(column, hold);
   }
 
+  /**
+   * Lane under a pointer. The hitbox of a note is its whole lane: the full height of the
+   * column, and the outer lanes stretch to the edges of the canvas so a tap beside the
+   * playfield still lands on the nearest lane instead of being swallowed.
+   */
   columnAt(clientX: number): number {
     const rect = this.canvas.getBoundingClientRect();
     const layout = this.layout(rect.width, rect.height);
     const relative = clientX - rect.left - layout.fieldX;
-    if (relative < 0 || relative > layout.fieldW) return -1;
     return clamp(Math.floor(relative / layout.colW), 0, this.cols - 1);
   }
 

@@ -615,7 +615,8 @@ main {
   pointer-events: none;
 }
 
-.player-head > * {
+/* Only the real control opts back in, so taps over the title still reach the lanes. */
+.player-head .ghost-button {
   pointer-events: auto;
 }
 
@@ -832,6 +833,8 @@ main {
   border: 1px solid var(--line);
   background: rgba(14, 12, 24, 0.8);
   backdrop-filter: blur(16px);
+  /* The panel floats over the bottom of the lanes, so its backdrop must not eat taps. */
+  pointer-events: none;
   box-shadow: 0 24px 60px -30px #000;
 }
 
@@ -847,6 +850,12 @@ main {
   border-radius: 999px;
   background: linear-gradient(90deg, var(--violet), var(--accent));
   transition: width 0.08s linear;
+}
+
+.player-controls button,
+.player-controls input,
+.player-controls .settings-panel {
+  pointer-events: auto;
 }
 
 .controls-row {
