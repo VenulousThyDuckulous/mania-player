@@ -60,6 +60,8 @@ interface Windows {
 
 const COMBO_CAP = 200;
 const HOLD_RELEASE_GRACE = 90;
+/** Pre-roll before the song: notes scroll in and the player gets a beat to get ready. */
+const LEAD_IN_MS = 3000;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -279,12 +281,12 @@ export class ManiaEngine {
     this.reset();
     this.status = 'playing';
     this.finished = false;
-    this.baseMs = 0;
+    this.baseMs = -LEAD_IN_MS;
     this.audioStartTime = getAudioContext().currentTime;
     this.wallStart = performance.now();
     void getAudioContext().resume();
-    this.startSource(0);
-    this.emit(0, true);
+    this.startSource(this.baseMs);
+    this.emit(this.baseMs, true);
     cancelAnimationFrame(this.raf);
     this.raf = requestAnimationFrame(this.tick);
   }
@@ -441,8 +443,11 @@ export class ManiaEngine {
     const source = ctx.createBufferSource();
     source.buffer = this.audio;
     source.connect(this.gain);
+    // A negative position means we are still counting in, so the track is queued
+    // to begin exactly when the clock reaches the first note.
+    const delay = fromMs < 0 ? -fromMs / 1000 : 0;
     try {
-      source.start(0, Math.max(0, fromMs / 1000));
+      source.start(ctx.currentTime + delay, Math.max(0, fromMs / 1000));
     } catch {
       return;
     }
@@ -644,6 +649,60 @@ export class ManiaEngine {
   private columnColor(column: number): string {
     const hue = Math.round(200 + (column * 360) / Math.max(1, this.cols)) % 360;
     return `hsl(${hue} 85% 70%)`;
+  }
+
+  /** 3-2-1 pre-roll (and a brief GO) drawn over the lanes while the clock is negative. */
+  private drawLeadIn(now: number, width: number, height: number): void {
+    const ctx = this.ctx;
+    const centerX = width / 2;
+    const centerY = height * 0.42;
+
+    if (now >= 0) {
+      if (now > 520) return;
+      const alpha = 1 - now / 520;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#ffd66b';
+      ctx.shadowColor = 'rgba(255, 214, 107, 0.55)';
+      ctx.shadowBlur = 32;
+      ctx.font = `800 ${Math.round(Math.min(width, height) * 0.1)}px Inter, system-ui, sans-serif`;
+      ctx.fillText('GO', centerX, centerY);
+      ctx.restore();
+      return;
+    }
+
+    const remaining = -now;
+    const step = Math.max(1, Math.ceil(remaining / 1000));
+    const pop = Math.min(1, (1000 - (remaining % 1000)) / 220);
+    const size = Math.round(Math.min(width, height) * 0.2 * (1.18 - 0.18 * pop));
+
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, Math.min(width, height) * 0.14, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(8, 7, 15, 0.55)';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = `rgba(255, 255, 255, ${0.06 + 0.14 * pop})`;
+    ctx.stroke();
+
+    ctx.globalAlpha = 0.4 + 0.6 * pop;
+    ctx.fillStyle = '#f4f0ff';
+    ctx.shadowColor = 'rgba(255, 102, 170, 0.5)';
+    ctx.shadowBlur = 36;
+    ctx.font = `800 ${size}px Inter, system-ui, sans-serif`;
+    ctx.fillText(String(step), centerX, centerY);
+
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 0.45 + 0.4 * pop;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+    ctx.font = '600 13px Inter, system-ui, sans-serif';
+    ctx.fillText('GET READY', centerX, centerY + size * 0.62);
+    ctx.restore();
   }
 
   private draw(now: number): void {
@@ -850,5 +909,7 @@ export class ManiaEngine {
     vignette.addColorStop(1, 'rgba(0, 0, 0, 0.55)');
     ctx.fillStyle = vignette;
     ctx.fillRect(0, 0, width, height);
+
+    this.drawLeadIn(now, width, height);
   }
 }
