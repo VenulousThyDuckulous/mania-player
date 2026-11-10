@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Beatmap, StoredSetMeta } from '../types';
 import { difficultyLabel, formatBytes, formatTime } from '../lib/format';
+import PsychCard from './PsychCard';
 
 interface LibraryProps {
   sets: StoredSetMeta[];
@@ -61,12 +62,13 @@ export default function Library({
             Play it right away.
           </h1>
           <p className="lede">
-            Import <code>.osz</code> archives, pick a difficulty, and play with your keyboard or
-            touchscreen. Every beatmap is stored in this browser only — nothing is uploaded.
+            Import <code>.osz</code> archives or Friday Night Funkin' Psych Engine mods, then pick a
+            song, a difficulty and the side you want to play. Every chart is stored in this browser
+            only — nothing is uploaded.
           </p>
           <div className="hero-actions">
             <button type="button" className="primary-button" onClick={pickFiles}>
-              Add .osz beatmaps
+              Add beatmaps or mods
             </button>
             <span className="hero-meta">
               {sets.length} {sets.length === 1 ? 'beatmap set' : 'beatmap sets'} saved
@@ -76,7 +78,7 @@ export default function Library({
         </div>
         <div className="hero-drop" onClick={pickFiles} role="presentation">
           <span className="hero-drop-icon">⤓</span>
-          <strong>Drag &amp; drop .osz files</strong>
+          <strong>Drag &amp; drop .osz or Psych mods</strong>
           <span>or click to browse</span>
         </div>
       </div>
@@ -105,8 +107,8 @@ export default function Library({
         <div className="empty">
           <h2>No beatmaps yet</h2>
           <p>
-            Find a mania beatmap on osu! and download the <code>.osz</code> file. Drop it here and it
-            stays in this browser for next time.
+            Find a mania beatmap on osu! and download the <code>.osz</code> file, or drop a Psych
+            Engine mod <code>.zip</code>. It stays in this browser for next time.
           </p>
           <button type="button" className="primary-button" onClick={pickFiles}>
             Choose files
@@ -128,6 +130,9 @@ export default function Library({
                 </button>
                 <span className="set-size">{formatBytes(set.size)}</span>
               </div>
+              {set.maps[0]?.source === 'psych' ? (
+                <PsychCard set={set} onPlay={onPlay} />
+              ) : (
               <div className="set-body">
                 <h3 title={set.maps[0]?.title ?? set.name}>{set.maps[0]?.title ?? set.name}</h3>
                 <p className="set-artist">
@@ -152,6 +157,7 @@ export default function Library({
                   ))}
                 </div>
               </div>
+              )}
             </article>
           ))}
         </div>

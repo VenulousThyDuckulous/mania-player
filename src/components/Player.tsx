@@ -250,14 +250,25 @@ export default function Player({ meta, map, settings, onSettingsChange, onExit }
         <div className="player-title">
           <strong>{map.title}</strong>
           <span>
-            {map.artist} · mapped by {map.creator}
+            {map.source === 'psych'
+              ? `${map.artist} · Psych Engine · playing ${map.sideLabel ?? 'player'} side`
+              : `${map.artist} · mapped by ${map.creator}`}
           </span>
         </div>
         <div className="player-tags">
           <span className="tag">{keys}K</span>
-          <span className="tag">{map.bpm > 0 ? `${map.bpm} BPM` : '— BPM'}</span>
-          <span className="tag">OD {map.od.toFixed(1)}</span>
-          <span className="tag">{difficultyLabel(map.od)}</span>
+          {map.bpm > 0 && <span className="tag">{map.bpm} BPM</span>}
+          {map.source === 'psych' ? (
+            <>
+              <span className="tag">{map.difficulty}</span>
+              <span className="tag">{map.sideLabel}</span>
+            </>
+          ) : (
+            <>
+              <span className="tag">OD {map.od.toFixed(1)}</span>
+              <span className="tag">{difficultyLabel(map.od)}</span>
+            </>
+          )}
         </div>
       </div>
 

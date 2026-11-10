@@ -258,7 +258,13 @@ export function readOsz(data: ArrayBuffer): ImportedSet {
 
 export function readAudioBuffer(data: ArrayBuffer, map: Beatmap): ArrayBuffer | null {
   const entries = unzipOsz(data);
-  let key = map.audioFile ? findEntry(entries, map.audioFile, dirOf(map.fileName)) : null;
+  // Charts that point at a full archive path (Psych Engine mods keep one audio file
+  // per song folder) resolve exactly first, so same-named tracks never collide.
+  const wanted = map.audioFile ? normalizePath(map.audioFile) : '';
+  let key = wanted
+    ? (Object.keys(entries).find((name) => normalizePath(name) === wanted) ?? null)
+    : null;
+  if (!key && map.audioFile) key = findEntry(entries, map.audioFile, dirOf(map.fileName));
   if (!key) key = Object.keys(entries).find((name) => AUDIO_RE.test(name)) ?? null;
   if (!key) return null;
 

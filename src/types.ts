@@ -12,8 +12,10 @@ export interface HitObject {
   endTime: number | null;
 }
 
+export type BeatmapSource = 'osu' | 'psych';
+
 export interface Beatmap {
-  /** Path of the .osu file inside the .osz archive. */
+  /** Path of the chart file inside the archive. */
   fileName: string;
   title: string;
   titleUnicode: string;
@@ -33,6 +35,16 @@ export interface Beatmap {
   totalNotes: number;
   totalHolds: number;
   timingPoints: TimingPoint[];
+  /** Where the chart came from. Undefined means a plain osu!mania .osz chart. */
+  source?: BeatmapSource;
+  /** Psych Engine: song folder used to group difficulties together. */
+  songKey?: string;
+  /** Psych Engine: chart difficulty name, e.g. "Hard". */
+  difficulty?: string;
+  /** Psych Engine: which side of the chart the player takes. */
+  side?: 'player' | 'opponent';
+  /** Psych Engine: display name of that side's character, e.g. "Boyfriend". */
+  sideLabel?: string;
 }
 
 export interface StoredSetMeta {

@@ -3,6 +3,7 @@ import Library from './components/Library';
 import Player from './components/Player';
 import { formatBytes } from './lib/format';
 import { readOsz } from './lib/osz';
+import { readPsychMod } from './lib/psych';
 import {
   getStorageInfo,
   listSets,
@@ -59,7 +60,7 @@ export default function App() {
       const accepted = files.filter((file) => /\.(osz|zip)$/i.test(file.name));
       const rejected = files.length - accepted.length;
       if (accepted.length === 0) {
-        setToast('Only .osz (or .zip) beatmap archives can be imported');
+        setToast('Drop .osz beatmaps or Psych Engine mod .zip files');
         return;
       }
 
@@ -70,9 +71,21 @@ export default function App() {
         setBusy(file.name);
         try {
           const buffer = await file.arrayBuffer();
-          const parsed = readOsz(buffer);
-          if (parsed.maps.length === 0) {
-            throw new Error('No osu!mania difficulties inside');
+          // Psych Engine mods and .osz archives are both zips; the charts inside decide.
+          const mod = readPsychMod(buffer);
+          let maps: Beatmap[];
+          let cover: Blob | null;
+          if (mod) {
+            maps = mod.songs.flatMap((song) => song.maps);
+            cover = mod.cover;
+            if (maps.length === 0) throw new Error('No playable notes inside this mod');
+          } else {
+            const parsed = readOsz(buffer);
+            if (parsed.maps.length === 0) {
+              throw new Error('No osu!mania difficulties or Psych Engine charts inside');
+            }
+            maps = parsed.maps;
+            cover = parsed.cover;
           }
 
           const name = stripExtension(file.name);
@@ -85,8 +98,8 @@ export default function App() {
             name,
             fileName: file.name,
             addedAt: Date.now(),
-            maps: parsed.maps,
-            cover: parsed.cover,
+            maps,
+            cover,
             size: buffer.byteLength,
           };
           await saveSet(meta, buffer);
@@ -211,7 +224,9 @@ export default function App() {
       </main>
 
       <footer className="footer">
-        <span>Local-first mania player · .osz parsing happens entirely in your browser</span>
+        <span>
+          Local-first mania player · .osz and Psych Engine parsing happens entirely in your browser
+        </span>
         <span>{storage ? `${formatBytes(storage.usage)} of ${formatBytes(storage.quota)} used` : ''}</span>
       </footer>
 
@@ -219,7 +234,7 @@ export default function App() {
         <div className="drop-overlay">
           <div>
             <span className="hero-drop-icon">⤓</span>
-            <strong>Drop .osz files to import</strong>
+            <strong>Drop .osz files or Psych mods to import</strong>
           </div>
         </div>
       )}
