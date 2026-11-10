@@ -469,20 +469,31 @@ main {
   font-size: 10px;
 }
 
-/* Player */
+/* Player — takes over the whole viewport, controls float over the playfield */
 .player {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  height: calc(100vh - 176px);
-  min-height: 500px;
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: #08070f;
 }
 
 .player-head {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 4;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   flex-wrap: wrap;
+  padding: clamp(10px, 1.6vh, 18px) clamp(12px, 2vw, 28px);
+  background: linear-gradient(180deg, rgba(6, 5, 12, 0.92), rgba(6, 5, 12, 0));
+  pointer-events: none;
+}
+
+.player-head > * {
+  pointer-events: auto;
 }
 
 .player-title {
@@ -526,14 +537,10 @@ main {
 }
 
 .player-stage {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  border-radius: var(--radius);
+  position: absolute;
+  inset: 0;
   overflow: hidden;
-  border: 1px solid var(--line);
   background: #08070f;
-  box-shadow: 0 30px 80px -40px rgba(0, 0, 0, 1);
 }
 
 .player-canvas {
@@ -550,10 +557,11 @@ main {
   top: 0;
   left: 0;
   right: 0;
+  z-index: 2;
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 18px;
+  padding: clamp(58px, 8.5vh, 84px) clamp(12px, 2vw, 28px) 0;
   pointer-events: none;
 }
 
@@ -687,13 +695,21 @@ main {
 }
 
 .player-controls {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(8px, 1.6vh, 18px);
+  transform: translateX(-50%);
+  z-index: 4;
+  width: min(1080px, calc(100vw - 20px));
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   border-radius: 16px;
   border: 1px solid var(--line);
-  background: rgba(18, 16, 31, 0.85);
+  background: rgba(14, 12, 24, 0.8);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 24px 60px -30px #000;
 }
 
 .progress {
@@ -852,11 +868,6 @@ kbd {
     padding: 22px;
   }
 
-  .player {
-    height: calc(100vh - 150px);
-    min-height: 440px;
-  }
-
   .controls-hints {
     display: none;
   }
@@ -877,5 +888,19 @@ kbd {
 
   .player-tags .tag:nth-child(n + 3) {
     display: none;
+  }
+}
+
+@media (max-height: 600px) {
+  .player-tags {
+    display: none;
+  }
+
+  .hud {
+    padding-top: 52px;
+  }
+
+  .player-controls {
+    padding: 8px 12px;
   }
 }

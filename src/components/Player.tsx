@@ -63,6 +63,15 @@ export default function Player({ meta, map, settings, onSettingsChange, onExit }
   const keys = map.keys;
   const labels = keyLabelsFor(keys);
 
+  // Gameplay owns the whole viewport, so the library behind it must not scroll.
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);

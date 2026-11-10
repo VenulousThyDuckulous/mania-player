@@ -624,12 +624,21 @@ export class ManiaEngine {
   }
 
   private layout(width: number, height: number) {
-    const colW = Math.min(Math.max(36, (width * 0.94) / this.cols), 104);
+    // The playfield fills the viewport: lanes spread out on wide screens, and the
+    // receptor line sits above the floating controls rather than under them.
+    const maxColW = Math.max(120, Math.min(220, height * 0.26));
+    const colW = Math.min(Math.max(44, (width * 0.96) / this.cols), maxColW);
     const fieldW = colW * this.cols;
     const fieldX = (width - fieldW) / 2;
-    const receptorY = Math.round(height - Math.max(62, height * 0.11));
+    // Leaves room for the receptor rings, their key labels and the floating controls.
+    const bottomReserve = Math.min(300, Math.max(190, height * 0.24));
+    const receptorY = Math.round(height - bottomReserve);
     const pixelsPerMs = this.scrollSpeed * 0.05 * (height / 600);
     return { colW, fieldW, fieldX, receptorY, pixelsPerMs };
+  }
+
+  private noteRadius(colW: number, height: number): number {
+    return clamp(Math.min(colW * 0.34, height * 0.062), 12, 48);
   }
 
   private columnColor(column: number): string {
@@ -682,19 +691,68 @@ export class ManiaEngine {
     ctx.fillStyle = 'rgba(255, 255, 255, 0.07)';
     ctx.fillRect(fieldX + fieldW, 0, 1, height);
 
-    // Notes
+    // Receptors — hollow rings that light up while their lane is held. Drawn first so
+    // the notes always pass in front of them.
+    for (let column = 0; column < this.cols; column += 1) {
+      const centerX = fieldX + column * colW + colW / 2;
+      const color = this.columnColor(column);
+      const active = this.pressed[column] || this.activeHolds[column] !== null;
+      const radius = this.noteRadius(colW, height) + 4;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(centerX, receptorY, radius, 0, Math.PI * 2);
+      ctx.fillStyle = active ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.32)';
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = active ? color : 'rgba(255, 255, 255, 0.18)';
+      if (active) {
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 22;
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      const flashAge = now - this.flash[column];
+      if (flashAge >= 0 && flashAge < 220) {
+        const alpha = 1 - flashAge / 220;
+        const glowRadius = radius * 2.2;
+        const glow = ctx.createRadialGradient(
+          centerX,
+          receptorY,
+          radius * 0.5,
+          centerX,
+          receptorY,
+          glowRadius,
+        );
+        glow.addColorStop(0, color);
+        glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.save();
+        ctx.globalAlpha = 0.32 * alpha;
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(centerX, receptorY, glowRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      ctx.font = '600 11px ui-monospace, SFMono-Regular, Menlo, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.48)';
+      ctx.fillText(displayKey(this.keyLabels[column] ?? '?'), centerX, receptorY + radius + 22);
+    }
+
+    // Notes — round heads so the lanes read as a rhythm game, not a piano roll.
     for (let column = 0; column < this.cols; column += 1) {
       const color = this.columnColor(column);
-      const x = fieldX + column * colW;
-      const noteWidth = colW - 8;
-      const noteX = x + 4;
-      const noteHeight = clamp(colW * 0.32, 10, 26);
+      const centerX = fieldX + column * colW + colW / 2;
+      const radius = this.noteRadius(colW, height);
 
       for (const note of this.byColumn[column]) {
         const headY = receptorY - (this.scrollPos(note.time) - scrollNow) * pixelsPerMs;
         // Notes are time ordered, so once heads pass the top of the screen the rest are
         // too. Long notes still need their body drawn, so they never break the loop.
-        if (headY < -noteHeight * 2 - 140 && !note.isHold) break;
+        if (headY < -radius * 2 - 140 && !note.isHold) break;
         if (headY > height + 200) continue;
         if (note.judged && note.tailJudged) continue;
 
@@ -703,17 +761,26 @@ export class ManiaEngine {
           const bodyTop = Math.max(-140, tailY);
           const bodyBottom = Math.min(receptorY, headY);
           if (bodyBottom > bodyTop) {
+            const bodyWidth = Math.max(6, radius * 0.8);
             ctx.save();
-            ctx.globalAlpha = note.judged ? 0.85 : 0.42;
-            roundRect(ctx, noteX + 3, bodyTop, noteWidth - 6, bodyBottom - bodyTop, 7);
+            ctx.globalAlpha = note.judged ? 0.8 : 0.4;
+            roundRect(
+              ctx,
+              centerX - bodyWidth / 2,
+              bodyTop,
+              bodyWidth,
+              bodyBottom - bodyTop,
+              bodyWidth / 2,
+            );
             ctx.fillStyle = color;
             ctx.fill();
             ctx.restore();
           }
           if (!note.judged) {
             ctx.save();
-            ctx.globalAlpha = 0.9;
-            roundRect(ctx, noteX + 3, Math.max(-20, tailY - 4), noteWidth - 6, 8, 4);
+            ctx.globalAlpha = 0.85;
+            ctx.beginPath();
+            ctx.arc(centerX, Math.max(radius, tailY), radius * 0.55, 0, Math.PI * 2);
             ctx.fillStyle = color;
             ctx.fill();
             ctx.restore();
@@ -724,50 +791,24 @@ export class ManiaEngine {
 
         ctx.save();
         if (note.time - now < 0) {
-          // Slightly brighten notes that are about to leave the receptor line.
-          ctx.globalAlpha = 0.75;
+          // Slightly fade notes that have already crossed the receptor line.
+          ctx.globalAlpha = 0.7;
         }
-        roundRect(ctx, noteX, headY - noteHeight / 2, noteWidth, noteHeight, 5);
+        ctx.beginPath();
+        ctx.arc(centerX, headY, radius, 0, Math.PI * 2);
         ctx.fillStyle = '#f4f0ff';
         ctx.fill();
-        ctx.lineWidth = 2;
+        ctx.lineWidth = Math.max(2, radius * 0.2);
         ctx.strokeStyle = color;
         ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(centerX, headY, radius * 0.4, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
         ctx.restore();
       }
     }
 
-    // Receptors
-    for (let column = 0; column < this.cols; column += 1) {
-      const x = fieldX + column * colW;
-      const color = this.columnColor(column);
-      const active = this.pressed[column] || this.activeHolds[column] !== null;
-
-      ctx.save();
-      roundRect(ctx, x + 7, receptorY - 3, colW - 14, 7, 3.5);
-      ctx.fillStyle = active ? color : 'rgba(255, 255, 255, 0.16)';
-      if (active) {
-        ctx.shadowColor = color;
-        ctx.shadowBlur = 20;
-      }
-      ctx.fill();
-      ctx.restore();
-
-      const flashAge = now - this.flash[column];
-      if (flashAge >= 0 && flashAge < 220) {
-        const alpha = 1 - flashAge / 220;
-        const glow = ctx.createLinearGradient(0, receptorY - 90, 0, receptorY);
-        glow.addColorStop(0, 'rgba(255, 255, 255, 0)');
-        glow.addColorStop(1, color.replace('hsl', 'hsla').replace(')', ` / ${0.28 * alpha})`));
-        ctx.fillStyle = glow;
-        ctx.fillRect(x + 2, receptorY - 90, colW - 4, 90);
-      }
-
-      ctx.font = '600 11px ui-monospace, SFMono-Regular, Menlo, monospace';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.48)';
-      ctx.fillText(displayKey(this.keyLabels[column] ?? '?'), x + colW / 2, receptorY + 26);
-    }
 
     // Combo
     if (this.combo > 1) {
